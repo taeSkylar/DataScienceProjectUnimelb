@@ -11,6 +11,7 @@
 *.map
 *.nosex
 *.ped
+*.irem
 
 #Plink Software
 plink
