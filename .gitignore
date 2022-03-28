@@ -5,8 +5,22 @@
 # Session Data files
 .RData
 
+#ped type data
+*.hh
+*.log
+*.map
+*.nosex
+*.ped
+
+#Plink Software
+plink
+prettify
+toy.map
+toy.ped
+
 # User-specific files
 .Ruserdata
+*.Rproj
 
 # Example code in package build process
 *-Ex.R
