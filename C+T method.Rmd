@@ -1,0 +1,112 @@
+```{r}
+#cd 'C:/Users/ywwu6/Downloads/New Compressed (zipped) Folder'
+```
+
+```{r}
+library(data.table)
+library(bigsnpr)
+library(bigstatsr)
+library(tidyverse)
+library(qqman)
+```
+
+```{r}
+#select 0.01maf
+./plink --bfile H2_dataset_final_1000G_fitered --maf 0.01 --make-bed --out H2_dataset_final_1000G_fitered
+```
+
+
+```{r}
+#fill NA with 0
+#snp_readBed("0.01maf_H2.bed")
+bedfile <- snp_attach("0.01maf_H2.rds")
+G   <- bedfile$genotypes
+bedfile$genotypes<- G$copy(code = c(0, 1, 2, 0, rep(NA, 252)))
+#snp_save(bed)
+snp_writeBed(bed,'noNA0.01maf.bed')
+#snp_readBed("noNA0.01maf.bed")
+```
+
+
+```{r}
+bim<-read.table("noNA0.01maf.bim")
+#snp_readBed("H2_dataset_final_1000G_filtered.bed")
+bed<-snp_attach("0.01maf_H2.rds")
+```
+
+
+```{r}
+#get logistic assoc
+./plink --bfile H2_dataset_final_1000G_filtered --logistic --out H2_dataset_final_1000G_filtered
+```
+
+```{r}
+#Clumping
+./plink --bfile H2_dataset_final_1000G_filtered  --clump-p1 1 --clump-r2 0.02  --clump-kb 250  --clump H2_dataset_final_1000G_filtered.assoc  --clump-snp-field SNP --clump-field P  --out H2_dataset_final_1000G_filtered
+```
+
+```{r}
+awk 'NR!=1{print $3}' EUR.clumped > EUR.valid.snp
+```
+
+```{r}
+awk '{print $3,$8}' Height.QC.Transformed > SNP.pvalue
+```
+
+```{r}
+dat <- read.table(file("noNA0.01maf.assoc.logistic"), header=T)
+dat$BETA <- log(dat$OR)
+write.table(dat, "noNA0.01maf.assoc.logistic", quote=F, row.names=F)
+```
+
+```{r}
+#calculate PRS with different range list
+./plink --bfile H2_dataset_final_1000G_filtered --score H2_dataset_final_1000G_filtered.assoc 2 4 11 header --q-score-range range_list SNP.pvalue --extract H2_dataset_final_1000G_filtered.valid.snp --out H2_dataset_final_1000G_filtered
+```
+
+```{r}
+#get eigenvalue and eigenvector (pca default 20)
+./plink --bfile noNA0.01maf  --pca  --out noNA0.01maf
+```
+
+```{r}
+phenotype <- read.table("noNA0.01maf.fam", header=T)
+pcs <- read.table("noNA0.01maf.eigenvec", header=F)
+colnames(pcs) <- c("FID", "IID", paste0("PC",1:20)) 
+y <- bed$fam$affection
+```
+
+```{r}
+#finding best pvalue for prs
+p.threshold <- c(0.001,0.05,0.1,0.2,0.3,0.4,0.5)
+null.r2 <- summary(lm(y~., data=pcs[,!colnames(pcs)%in%c("FID","IID")]))$r.squared
+prs.result <- NULL
+for(i in p.threshold){
+    pcs.prs <- merge(pcs, 
+                        read.table(paste0("noNA0.01maf.",i,".profile"), header=T)[,c("FID","IID", "SCORE")],by=c("FID", "IID"))
+    model <- summary(lm(y~., data=pcs.prs[,!colnames(pcs.prs)%in%c("FID","IID")]))
+    model.r2 <- model$r.squared
+    prs.r2 <- model.r2-null.r2
+    prs.coef <- model$coeff["SCORE",]
+    prs.result <- rbind(prs.result, 
+        data.frame(Threshold=i, R2=prs.r2, 
+                    P=as.numeric(prs.coef[4]), 
+                    BETA=as.numeric(prs.coef[1]),
+                    SE=as.numeric(prs.coef[2])))
+}
+print(prs.result[which.max(prs.result$R2),])
+```
+
+```{r}
+#see how many SNPs are used
+length(read.table('noNA0.01maf.clumped',header = T)$SNP)
+```
+
+```{r}
+bestprs= read.table('noNA0.01maf.0.001.profile',header = T)
+AUC(bestprs$SCORE,bed$fam$affection-1)
+```
+
+```{r}
+AUCBoot(bestprs$SCORE,bed$fam$affection-1)
+```
