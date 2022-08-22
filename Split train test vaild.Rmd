@@ -1,0 +1,35 @@
+```{r}
+library(data.table)
+library(bigsnpr)
+library(bigstatsr)
+```
+
+```{r}
+bed <- snp_attach('noNA0.01maf.rds')
+G<- bed$genotypes
+```
+
+```{r}
+set.seed(1)
+
+ind.train <- sample(nrow(G),nrow(G)/2)
+
+ind.test.vaild <- setdiff(rows_along(G),ind.train)
+
+ind.vaild<- sample(ind.test.vaild, length(ind.test.vaild)/2)
+
+ind.test<- setdiff(ind.test.vaild,ind.vaild)
+```
+
+```{r}
+snp_writeBed(bed,'noNA0.01maf_train.bed',ind.row = ind.train)
+snp_writeBed(bed,'noNA0.01maf_test.bed',ind.row = ind.test)
+snp_writeBed(bed,'noNA0.01maf_vaild.bed',ind.row = ind.vaild)
+```
+
+```{r}
+#Check it's rows if splitting is done
+train_fam <- read.table('noNA0.01maf_train.fam')
+nrow(train_fam)
+```
+
