@@ -1,0 +1,37 @@
+```{r}
+library(data.table)
+library(bigsnpr)
+library(bigstatsr)
+```
+
+```{r}
+# Choose our final data which done with SNP selection
+# snp_readBed("noNA0.01maf.bed")
+bed <- snp_attach('noNA0.01maf.rds')
+G<- bed$genotypes
+```
+
+```{r}
+set.seed(1)
+
+ind.train <- sample(nrow(G),nrow(G)/2)
+
+ind.test.valid <- setdiff(rows_along(G),ind.train)
+
+ind.valid<- sample(ind.test.valid, length(ind.test.valid)/2)
+
+ind.test<- setdiff(ind.test.valid,ind.valid)
+```
+
+```{r}
+snp_writeBed(bed,'noNA0.01maf_train.bed',ind.row = ind.train)
+snp_writeBed(bed,'noNA0.01maf_test.bed',ind.row = ind.test)
+snp_writeBed(bed,'noNA0.01maf_valid.bed',ind.row = ind.valid)
+```
+
+```{r}
+# Check its rows if splitting is done
+train_fam <- read.table('noNA0.01maf_train.fam')
+nrow(train_fam)
+```
+
